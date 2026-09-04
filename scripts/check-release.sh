@@ -29,6 +29,8 @@ public_allowlist=(
   "background.js"
   "settings.js"
   "content.js"
+  "bilibili.js"
+  "bilibili-content.js"
   "sidepanel.html"
   "sidepanel.css"
   "sidepanel.js"
@@ -46,6 +48,7 @@ public_allowlist=(
   "README.zh-CN.md"
   "PRIVACY.md"
   "SECURITY.md"
+  "docs/哔哩哔哩使用说明.md"
   "LICENSE"
 )
 
@@ -54,6 +57,8 @@ required_public_files=(
   "background.js"
   "settings.js"
   "content.js"
+  "bilibili.js"
+  "bilibili-content.js"
   "sidepanel.html"
   "sidepanel.css"
   "sidepanel.js"
@@ -64,6 +69,7 @@ required_public_files=(
   "README.zh-CN.md"
   "PRIVACY.md"
   "SECURITY.md"
+  "docs/哔哩哔哩使用说明.md"
   "LICENSE"
 )
 
