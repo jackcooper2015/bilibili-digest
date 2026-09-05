@@ -94,7 +94,7 @@ test("the transcript view restores without resuming automatic scrolling", () => 
   );
   assert.match(
     source,
-    /pendingTranscriptViewState = await loadTranscriptViewState\(videoId\)/,
+    /const viewState = await loadTranscriptViewState\(videoId\);[\s\S]*pendingTranscriptViewState = viewState/,
   );
   assert.match(
     source,
@@ -132,7 +132,7 @@ test("the panel never borrows a background YouTube tab", () => {
   );
   assert.match(
     source,
-    /if \(!tab\.url\.startsWith\("https:\/\/www\.youtube\.com"\)\) \{\s*handleFrontTabUrl\(tab\.url\);\s*return;/,
+    /if \(!YTD_SETTINGS\.parseVideoUrl\(tab\.url\)\) \{\s*handleFrontTabUrl\(tab\.url\);\s*return;/,
   );
   assert.doesNotMatch(
     source,

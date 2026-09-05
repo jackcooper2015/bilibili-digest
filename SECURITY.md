@@ -1,44 +1,23 @@
-# Security Policy
+# 安全说明
 
-## Supported versions
+bilibili-digest 的安全修复面向仓库最新代码，旧快照不保证获得维护。
 
-YouTube Digest is a small GitHub-only project. Security fixes are made on the latest code on `main` and, when releases are published, the latest GitHub release. Older snapshots are not supported.
+## 报告问题
 
-## Report a vulnerability privately
+不要在公开 Issue 或合并请求中发布真实密钥、私密视频、字幕、笔记或可被直接利用的漏洞细节。若仓库安全页提供私密漏洞报告入口，请使用该入口；否则通过仓库所有者的公开联系方式询问私密报告渠道，不要在询问中附带敏感内容。
 
-Do not publish vulnerability details, exposed credentials, private video information, or transcript data through a public issue or pull request. This repository does not accept public security reports.
+私密报告应包含受影响版本、最小复现步骤、预期与实际行为、影响和修复建议。使用脱敏数据及公开测试内容。本项目没有保证响应时间或漏洞赏金计划。
 
-Use GitHub's private vulnerability reporting flow from this repository's **Security** tab when it is available. If the private reporting link is not visible, contact the repository owner through their GitHub profile and ask for a private reporting channel without including vulnerability details in the public message. Include the following only in the private report:
+## 重点关注
 
-- the affected version or commit;
-- the minimum steps needed to reproduce the problem;
-- the expected and observed behavior;
-- the security and privacy impact; and
-- a suggested fix, if you have one.
+- 源码、日志、截图或发布包泄露密钥和私密内容。
+- 字幕、视频元数据或 AI 输出导致脚本或 HTML 注入。
+- B 站字幕请求的视频标识、CID、域名和消息来源校验失效。
+- 请求被发送到未说明的第三方，或读取超出 B 站和 YouTube 功能范围的数据。
+- 缓存串用、非预期传输笔记或凭据、本地数据删除失效。
 
-Remove real API keys, access tokens, private URLs, transcripts, notes, and personal information. Use redacted values and public test content.
+## 使用与发布
 
-There is no guaranteed response time or bug-bounty program. Please allow a reasonable period for investigation and remediation before public disclosure.
+仅安装可信来源的代码；密钥通过扩展设置页填写，不写入源码。设备或密钥泄露时在服务商侧撤销密钥。Chrome 本地存储不是加密密码保险箱。
 
-## High-priority issues
-
-Examples include:
-
-- API keys or private content included in source, logs, screenshots, or release ZIPs;
-- requests to network origins outside the documented YouTube, Supadata, and DeepSeek hosts;
-- script or HTML injection through transcript, metadata, service errors, or model output;
-- access to browsing data outside the documented YouTube scope;
-- unintended transmission of notes, transcripts, or credentials;
-- a dependency or release-workflow compromise; and
-- bypasses of local data deletion or DeepSeek configuration controls.
-
-## User security guidance
-
-- Install only from a GitHub source or release you trust.
-- Review changes and the packaged file list before loading an update.
-- Use dedicated, scoped API keys where possible and set provider spending limits.
-- Do not reuse keys from production systems.
-- Revoke keys immediately if a device, browser profile, ZIP, log, or screenshot exposes them.
-- Remember that Chrome local extension storage is not an encrypted password vault.
-
-The release tooling uses an explicit file allowlist and scans public files for common credential patterns, but automated checks cannot detect every secret.
+发布脚本使用文件白名单并扫描常见密钥模式，但自动扫描无法识别所有秘密。上传前应检查变更和文件列表。数据流详见 [隐私说明](PRIVACY.md)。

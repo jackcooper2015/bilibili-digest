@@ -1,88 +1,32 @@
-# Privacy
+# 隐私说明
 
-Effective: July 28, 2026
+更新日期：2026-09-05。
 
-YouTube Digest is a GitHub-only, bring-your-own-key Chrome extension. It has no YouTube Digest account, developer-operated backend, analytics, advertising, or telemetry.
+bilibili-digest 是用户自行提供 API Key、通过本地加载安装的 Chrome 扩展。没有项目账号系统、开发者服务器、广告、分析统计或遥测。
 
-## Data the extension handles
+## 处理的数据与流向
 
-Depending on the feature you use, YouTube Digest handles:
+- B 站：视频页请求视频信息，并复用播放器同视频、同分 P 的字幕签名请求。浏览器携带正常站点登录态，扩展不要求复制 Cookie，也不读取或保存 Cookie 字符串。字幕索引和响应校验视频标识与 CID；签名不写入缓存。字幕正文仅从允许的 HTTPS 字幕域名获取，不携带 Cookie，拒绝重定向。
+- YouTube：将规范化的视频地址发送给 `https://api.supadata.ai`，使用用户的 Supadata 密钥获取原生字幕。B 站字幕不经过 Supadata。
+- DeepSeek：使用摘要、讲解、翻译或自动整理笔记时，将所需字幕、选中文本及相关视频上下文发送到 `https://api.deepseek.com`，固定使用 `deepseek-v4-flash`。
+- 服务商依据各自条款和隐私政策处理请求。本项目开发者不代理这些请求。
 
-- the canonical URL and video ID of the active YouTube video;
-- transcript text and timestamps;
-- video metadata such as title, channel, description, and duration;
-- text you select in the transcript and nearby transcript context;
-- transcript context around a timestamped note;
-- content you ask to translate;
-- notes you save;
-- Supadata and DeepSeek configuration, including API keys; and
-- cached transcript, digest, and translation results.
+## 本地存储与删除
 
-## Where data goes
+密钥、设置、笔记、字幕及摘要和翻译缓存保存在 Chrome 扩展本地存储。最多保留 100 条笔记；摘要缓存最多保留 20 个视频，侧栏打开时清理超过 30 天的缓存。视频平台和分 P 使用独立的存储标识。
 
-### Supadata
+设置页支持清除摘要缓存、删除全部笔记或重置全部扩展数据，也可删除单条笔记。清理本地数据不代表服务商已删除处理过的数据。需要撤销密钥时，请在服务商账号中操作。
 
-YouTube Digest sends the canonical YouTube video URL to `https://api.supadata.ai` with your Supadata API key. Supadata returns the transcript and timestamps. A Supadata key is required for transcript retrieval.
+Chrome 本地存储不是加密密码保险箱；具备设备或浏览器个人资料访问权限的人可能读取其中数据。
 
-### DeepSeek
+## 权限用途
 
-The published version sends AI feature content to DeepSeek V4 Flash at `https://api.deepseek.com`:
+- `sidePanel`：显示视频学习侧栏。
+- `storage`：保存设置、密钥、笔记与缓存。
+- `tabs`：定位视频标签页并协调交互。
+- `scripting`：调用视频页脚本，与播放器交互。
+- `https://www.bilibili.com/*`、`https://www.youtube.com/*`：页面入口、视频信息和时间戳跳转。
+- `https://api.supadata.ai/*`：YouTube 字幕。
+- `https://api.deepseek.com/*`：AI 摘要、讲解、翻译和笔记整理。
 
-- transcript plus relevant title, channel, description, or duration for an overview;
-- selected text plus nearby transcript context for an explanation;
-- small semantic transcript batches currently needed for progressive Chinese
-  translation, or requested overview or explanation content;
-- nearby transcript context and video metadata when polishing a saved note.
-
-The endpoint and `deepseek-v4-flash` model are fixed in the published Settings page. You provide one DeepSeek API key. To use another provider or model, you must adapt your own local source copy and its permissions. The Settings page provides a coding-agent prompt for that purpose and warns you never to include an API key in the prompt or chat.
-
-Requests go directly from the extension to Supadata or DeepSeek. They are authenticated with the keys you supply. YouTube Digest's developer does not proxy or receive these requests.
-
-Those services process data under their own terms, privacy policies, retention practices, and account settings. Do not send confidential, personal, or regulated content unless their terms and your obligations permit it.
-
-## Local storage and retention
-
-YouTube Digest uses Chrome's local extension storage, not a YouTube Digest cloud service.
-
-- Supadata and DeepSeek settings and API keys remain on the device in Chrome's extension storage.
-- Saved notes remain until you delete them or remove/clear the extension's data. The extension keeps up to 100 notes.
-- Recent transcript, digest, and per-segment translation cache entries are stored
-  locally. The cache is limited to 20 videos, and entries older than 30 days are
-  removed when the side panel opens.
-
-Chrome extension storage is not a password vault. Anyone with sufficient access to your browser profile or device may be able to recover locally stored keys or content. Use scoped keys where providers support them, set spending limits, and rotate or revoke a key if the device or browser profile is compromised.
-
-To remove data:
-
-- delete individual saved notes in YouTube Digest;
-- use the Options page to clear cached digests, delete all notes, or reset all extension data;
-- remove the extension or clear its stored data from Chrome to delete all local settings, keys, notes, and cache entries; and
-- revoke keys in the Supadata or DeepSeek dashboard to stop their future use.
-
-Clearing local data does not delete information already processed or retained by Supadata or DeepSeek. Use each service's controls for service-side requests.
-
-## Permissions
-
-YouTube Digest uses Chrome permissions for these purposes:
-
-- `sidePanel`: display the YouTube Digest interface beside YouTube.
-- `storage`: store settings, keys, notes, and cached results locally.
-- `tabs`: identify and interact with the active YouTube tab.
-- `scripting`: coordinate the extension's YouTube page controls.
-- YouTube host access: read the active video's URL and metadata and provide timestamp controls.
-- Supadata host access: retrieve transcripts.
-- DeepSeek host access: provide AI overviews, explanations, translation, and note polishing through DeepSeek V4 Flash.
-
-YouTube Digest does not use these permissions to monitor general browsing activity.
-
-## No sale or advertising use
-
-YouTube Digest does not sell personal information, build advertising profiles, or share data with data brokers. It does not include analytics SDKs.
-
-## Changes
-
-Privacy-relevant changes will be documented in this file and in the repository history. Review updates before installing a new version.
-
-## Questions
-
-This repository does not provide a public support or issue channel. Review this policy, the source code, and each provider's documentation before using the extension. For a vulnerability or accidental secret exposure, follow the private process in [SECURITY.md](SECURITY.md).
+扩展不使用这些权限追踪一般浏览行为。安全问题的报告方式见 [安全说明](SECURITY.md)。

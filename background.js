@@ -28,7 +28,7 @@ const debugLog = (...args) => {
 chrome.storage.local
   .setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })
   .catch((error) =>
-    console.warn("[YouTube Digest] Could not restrict storage access:", error),
+    console.warn("[bilibili-digest] Could not restrict storage access:", error),
   );
 
 async function getSettings() {
@@ -81,7 +81,7 @@ async function requestAiCompletion({
   const settings = await getSettings();
   if (!settings.aiApiKey) {
     const error = new Error(
-      "DeepSeek API key not configured. Open YouTube Digest Settings.",
+      "DeepSeek API key not configured. Open bilibili-digest Settings.",
     );
     error.code = "NO_AI_KEY";
     throw error;
@@ -234,7 +234,7 @@ async function readBoundedAiResponse(response, onActivity) {
  * Chrome's Side Panel API lets us show a persistent panel alongside the page.
  */
 chrome.action.onClicked.addListener((tab) => {
-  if (!(tab.url || "").startsWith("https://www.youtube.com")) {
+  if (!YTD_SETTINGS.parseVideoUrl(tab.url)) {
     void updatePanelForTab(tab.id, tab.url, tab.windowId);
     return;
   }
@@ -261,7 +261,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
  * Keep the side panel scoped to YouTube tabs only.
  *
  * Chrome side panels are "global" by default: once opened, the panel follows
- * you to every tab. To make YouTube Digest behave like a YouTube-only tool, we
+ * you to every tab. To make bilibili-digest behave like a YouTube-only tool, we
  * enable the panel on YouTube tabs and disable it everywhere else. Disabling
  * on a tab makes Chrome hide/close the panel for that tab, so it never lingers
  * on a new tab or some other website.
@@ -278,7 +278,7 @@ async function closePanelForTab(tabId, windowId) {
   if (typeof chrome.sidePanel.close !== "function") return;
 
   try {
-    // This closes the tab-specific panel used by YouTube Digest.
+    // This closes the tab-specific panel used by bilibili-digest.
     await chrome.sidePanel.close({ tabId });
     return;
   } catch (error) {
@@ -292,7 +292,7 @@ async function closePanelForTab(tabId, windowId) {
 }
 
 async function updatePanelForTab(tabId, url, windowId) {
-  const isYouTube = (url || "").startsWith("https://www.youtube.com");
+  const isYouTube = !!YTD_SETTINGS.parseVideoUrl(url);
   if (!isYouTube) {
     // Close the visible instance first. Then disable this tab so Chrome cannot
     // reopen the global default panel as navigation settles.
@@ -350,7 +350,7 @@ chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // We need to return true to indicate we'll respond asynchronously
   if (message.action === "fetchTranscript") {
-    handleFetchTranscript(message.videoId)
+    handleFetchTranscript(message.videoId, message.tabId || sender.tab?.id)
       .then(sendResponse)
       .catch((err) => sendResponse({ error: err.message }));
     return true; // Keep the message channel open for async response
@@ -453,7 +453,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "openSidePanel") {
     const tabId = sender.tab?.id;
-    debugLog("[YouTube Digest BG] openSidePanel requested from tab:", tabId);
+    debugLog("[bilibili-digest BG] openSidePanel requested from tab:", tabId);
 
     // Re-enable the panel (it may have been disabled by auto-close) and open it.
     // IMPORTANT: we call setOptions + open synchronously (no await between them)
@@ -476,7 +476,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }, 300);
         })
         .catch((err) => {
-          console.error("[YouTube Digest BG] openSidePanel error:", err);
+          console.error("[bilibili-digest BG] openSidePanel error:", err);
         });
     } else {
       // Fallback: find the active tab
@@ -491,7 +491,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
             chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
               console.error(
-                "[YouTube Digest BG] openSidePanel fallback error:",
+                "[bilibili-digest BG] openSidePanel fallback error:",
                 err,
               );
             });
@@ -505,7 +505,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Relay messages from side panel to content script
   if (message.action === "relayToContent") {
-    debugLog("[YouTube Digest BG] Relay request:", message.payload?.action);
+    debugLog("[bilibili-digest BG] Relay request:", message.payload?.action);
     (async () => {
       try {
         // Query specifically for YouTube tabs to avoid side panel context issues
@@ -515,29 +515,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           lastFocusedWindow: true,
         });
         debugLog(
-          "[YouTube Digest BG] Active tab in last focused window:",
+          "[bilibili-digest BG] Active tab in last focused window:",
           tabs.length,
           tabs[0]?.url,
         );
 
         // If no YouTube tab found, try broader query
-        if (!tabs[0] || !tabs[0].url?.includes("youtube.com")) {
-          tabs = await chrome.tabs.query({
-            url: "https://www.youtube.com/*",
-            active: true,
-          });
-          debugLog("[YouTube Digest BG] Active YouTube tabs:", tabs.length);
-        }
-
-        // Still nothing? Try any YouTube tab
-        if (!tabs[0]) {
-          tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" });
-          debugLog("[YouTube Digest BG] Any YouTube tabs:", tabs.length);
-        }
+        if (Number.isInteger(message.tabId)) tabs = [await chrome.tabs.get(message.tabId)];
+        if (!YTD_SETTINGS.parseVideoUrl(tabs[0]?.url)) tabs = [];
 
         if (tabs[0]) {
           debugLog(
-            "[YouTube Digest BG] Sending to tab:",
+            "[bilibili-digest BG] Sending to tab:",
             tabs[0].id,
             "URL:",
             tabs[0].url,
@@ -555,7 +544,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // real channel ("Replit and Stripe"), and its description is
           // truncated while the box is collapsed. We fall back to the DOM
           // only for fields the player didn't provide.
-          if (message.payload?.action === "getVideoInfo") {
+          if (message.payload?.action === "getVideoInfo" && YTD_SETTINGS.parseVideoUrl(tabs[0].url)?.platform === "youtube") {
             const playerInfo = await getPlayerVideoDetails(tabs[0].id);
             if (playerInfo) {
               response = {
@@ -569,14 +558,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           }
 
-          debugLog("[YouTube Digest BG] Got response from content:", response);
+          debugLog("[bilibili-digest BG] Got response from content:", response);
           sendResponse({ success: true, response });
         } else {
-          debugLog("[YouTube Digest BG] No YouTube tab found");
-          sendResponse({ success: false, error: "No YouTube tab found" });
+          debugLog("[bilibili-digest BG] No YouTube tab found");
+          sendResponse({ success: false, error: "请先打开 YouTube 或 B 站视频页面。" });
         }
       } catch (err) {
-        console.error("[YouTube Digest BG] Relay error:", err.message);
+        console.error("[bilibili-digest BG] Relay error:", err.message);
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -618,7 +607,7 @@ async function getPlayerVideoDetails(tabId) {
     });
     return results?.[0]?.result || null;
   } catch (e) {
-    console.warn("[YouTube Digest BG] Player details unavailable:", e.message);
+    console.warn("[bilibili-digest BG] Player details unavailable:", e.message);
     return null;
   }
 }
@@ -639,14 +628,25 @@ async function getPlayerVideoDetails(tabId) {
  * @param {string} videoId - The YouTube video ID (e.g., "dQw4w9WgXcQ")
  * @returns {Object} - { success, transcript, transcriptText, language } or { success: false, error }
  */
-async function handleFetchTranscript(videoId) {
+async function handleFetchTranscript(videoId, tabId) {
+  if (String(videoId).startsWith("bilibili:")) {
+    try {
+      const tabs = Number.isInteger(tabId) ? [await chrome.tabs.get(tabId)]
+        : await chrome.tabs.query({ url: "https://www.bilibili.com/video/*" });
+      const tab = tabs.find(candidate => YTD_SETTINGS.parseVideoUrl(candidate.url)?.id === videoId);
+      if (!tab) return { success: false, error: "BILIBILI_TAB_REQUIRED", message: "请打开对应的 B 站视频和分 P 后重试。" };
+      return await chrome.tabs.sendMessage(tab.id, { action: "fetchBilibiliTranscript", videoId });
+    } catch {
+      return { success: false, error: "BILIBILI_PAGE_NOT_READY", message: "请刷新 B 站视频页面，然后重新点击视频摘要。" };
+    }
+  }
   try {
     const settings = await getSettings();
     if (!settings.supadataApiKey) {
       return {
         success: false,
         error: "NO_SUPADATA_KEY",
-        message: "Supadata API key not configured. Open YouTube Digest Settings.",
+        message: "Supadata API key not configured. Open bilibili-digest Settings.",
       };
     }
 
@@ -690,7 +690,7 @@ async function handleFetchTranscript(videoId) {
         return {
           success: false,
           error: "INVALID_SUPADATA_KEY",
-          message: "Your Supadata API key is invalid. Open YouTube Digest Settings.",
+          message: "Your Supadata API key is invalid. Open bilibili-digest Settings.",
         };
       }
       if (response.status === 404) {
@@ -921,7 +921,7 @@ async function handleAnalyzeTranscript(
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "DeepSeek API key not configured. Open YouTube Digest Settings.",
+        message: "DeepSeek API key not configured. Open bilibili-digest Settings.",
       };
     }
 
@@ -975,7 +975,7 @@ async function handleAnalyzeTranscript(
       promptVariables,
     );
 
-    debugLog("[YouTube Digest] Requesting video analysis", settings.aiModel);
+    debugLog("[bilibili-digest] Requesting video analysis", settings.aiModel);
     const { text: responseText } = await requestAiCompletion({
       maxTokens: 8192,
       responseFormat: { type: "json_object" },
@@ -1141,7 +1141,7 @@ async function handleSaveNote(
   selectedText,
 ) {
   try {
-    const canonicalVideoUrl = YTD_SETTINGS.canonicalYouTubeUrl(videoId);
+    const canonicalVideoUrl = YTD_SETTINGS.canonicalVideoUrl(videoId);
     const safeTimestamp = Math.max(0, Math.floor(Number(timestamp) || 0));
     const exactSelectedText =
       typeof selectedText === "string"
@@ -1164,7 +1164,7 @@ async function handleSaveNote(
           typeof channelName === "string" ? channelName.slice(0, 300) : "",
         timestamp: `${minutes}:${String(seconds).padStart(2, "0")}`,
         timestampSeconds: safeTimestamp,
-        timestampedUrl: `${canonicalVideoUrl}&t=${safeTimestamp}s`,
+        timestampedUrl: YTD_SETTINGS.timestampedVideoUrl(videoId, safeTimestamp),
         text: exactSelectedText,
         rawText: exactSelectedText,
         createdAt: Date.now(),
@@ -1182,12 +1182,12 @@ async function handleSaveNote(
     let transcript = null;
     try {
       const cached = await chrome.storage.local.get(`digest_${videoId}`);
-      if (cached[`digest_${videoId}`]?.transcript) {
+      if (YTD_SETTINGS.isCompatibleDigestCache(videoId, cached[`digest_${videoId}`])) {
         transcript = cached[`digest_${videoId}`].transcript;
-        debugLog("[YouTube Digest] Using cached transcript for note");
+        debugLog("[bilibili-digest] Using cached transcript for note");
       }
     } catch (e) {
-      debugLog("[YouTube Digest] No cached transcript, fetching...");
+      debugLog("[bilibili-digest] No cached transcript, fetching...");
     }
 
     // If no cached transcript, fetch it
@@ -1280,7 +1280,7 @@ async function handleSaveNote(
     const formattedTimestamp = `${minutes}:${String(seconds).padStart(2, "0")}`;
 
     // Create timestamped URL
-    const timestampedUrl = `${canonicalVideoUrl}&t=${safeTimestamp}s`;
+    const timestampedUrl = YTD_SETTINGS.timestampedVideoUrl(videoId, safeTimestamp);
 
     // Create the note object
     const note = {
@@ -1308,7 +1308,7 @@ async function handleSaveNote(
 
     return { success: true, note };
   } catch (error) {
-    console.error("[YouTube Digest] Save note error:", error);
+    console.error("[bilibili-digest] Save note error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -1331,7 +1331,7 @@ async function cleanupNoteText(
   }
 
   try {
-    debugLog("[YouTube Digest] Requesting note cleanup");
+    debugLog("[bilibili-digest] Requesting note cleanup");
     const variables = {
       videoTitle: videoTitle || "Unknown",
       fullContext,
@@ -1368,7 +1368,7 @@ async function cleanupNoteText(
       }
     } catch (parseError) {
       console.warn(
-        "[YouTube Digest] JSON parse failed for note, stripping preambles:",
+        "[bilibili-digest] JSON parse failed for note, stripping preambles:",
         parseError,
       );
       result = result.replace(
@@ -1386,7 +1386,7 @@ async function cleanupNoteText(
 
     return result.slice(0, 3000);
   } catch (e) {
-    console.error("[YouTube Digest] Cleanup error:", e);
+    console.error("[bilibili-digest] Cleanup error:", e);
   }
 
   // Return combined raw text if cleanup fails
@@ -1473,7 +1473,7 @@ async function handleExplainSelection(
       variables,
     );
 
-    debugLog("[YouTube Digest] Requesting selection explanation");
+    debugLog("[bilibili-digest] Requesting selection explanation");
     const { text: explanation } = await requestAiCompletion({
       maxTokens: 1024,
       messages: [
@@ -1672,7 +1672,7 @@ async function handleTranslateContent(
     }
     return { success: true, translatedContent: aligned };
   } catch (error) {
-    console.error("[YouTube Digest] Translation error:", error);
+    console.error("[bilibili-digest] Translation error:", error);
     return { success: false, error: error.message || "Translation failed" };
   }
 }

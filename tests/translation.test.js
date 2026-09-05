@@ -128,6 +128,7 @@ function loadBackgroundHelpers({
       tabs: { onUpdated: listeners, onActivated: listeners },
     },
     YTD_SETTINGS: {
+      ...require("../settings.js"),
       STORAGE_KEY: "ytd_settings",
       normalize: (value) => value,
       chatCompletionsUrl: (baseUrl) => `${baseUrl}/chat/completions`,
